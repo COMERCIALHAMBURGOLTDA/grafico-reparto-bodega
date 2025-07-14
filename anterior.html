@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Resultados Concurso</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f2f2f2;
+      color: #111;
+      padding: 40px;
+    }
+    h1#titulo {
+      background: #1976d2;
+      color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 2em;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+      margin-bottom: 30px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    th, td {
+      padding: 16px 18px;
+      border: 1px solid #ddd;
+    }
+    th {
+      background: #1976d2;
+      color: #fff;
+      text-transform: uppercase;
+      font-size: 0.9em;
+      letter-spacing: 0.5px;
+    }
+    td {
+      font-size: 1em;
+    }
+    tr:nth-child(even) td {
+      background: #f9f9f9;
+    }
+    tr:hover td {
+      background: #e9f0f8;
+    }
+    .medal {
+      font-size: 1.4em;
+    }
+    td.lugar {
+      text-align: center;
+      font-weight: bold;
+    }
+    td.chofer {
+      font-weight: 600;
+    }
+    th:first-child, td:first-child {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="titulo">Cargando título...</h1>
+  <div id="table-container">Cargando datos...</div>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pub?gid=358940228&single=true&output=csv";
+
+    Papa.parse(csvUrl, {
+      download: true,
+      header: false,
+      complete: function(results) {
+        let rows = results.data;
+
+        // Título desde A9
+        const titulo = rows[8] && rows[8][0] ? rows[8][0] : "Sin título";
+        document.getElementById("titulo").innerText = titulo;
+
+        // Encabezados manuales reordenados
+        const headers = [" ", "Lugar", "Chofer", "Peoneta"];
+
+        // Datos desde fila 3 a 8, solo A:C
+        const data = rows.slice(2, 8).map(row => row.slice(0, 3));
+
+        const container = document.getElementById("table-container");
+
+        if (data.length === 0) {
+          container.innerHTML = "No hay datos.";
+          return;
+        }
+
+        let table = "<table><thead><tr>";
+        headers.forEach(header => {
+          table += `<th>${header}</th>`;
+        });
+        table += "</tr></thead><tbody>";
+
+        data.forEach((row, index) => {
+          let medal = "";
+          if (index === 0) medal = "🥇";
+          else if (index === 1) medal = "🥈";
+          else if (index === 2) medal = "🥉";
+          else medal = "🎖️";
+
+          const chofer = row[0] || "";
+          const peoneta = row[1] || "";
+          const lugar = row[2] || "";
+
+          table += "<tr>";
+          table += `<td class="medal">${medal}</td>`;
+          table += `<td class="lugar">${lugar}</td>`;
+          table += `<td class="chofer">${chofer}</td>`;
+          table += `<td>${peoneta}</td>`;
+          table += "</tr>";
+        });
+
+        table += "</tbody></table>";
+        container.innerHTML = table;
+      }
+    });
+  </script>
+</body>
+</html>

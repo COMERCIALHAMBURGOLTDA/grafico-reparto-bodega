@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Rotación de Páginas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #page-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    #countdown {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #0f0;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      border-radius: 6px;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="page-frame"></iframe>
+  <div id="countdown">Cargando...</div>
+
+  <script>
+    const pages = ['actual.html', 'tabla.html', 'anterior.html'];
+    const durations = [null, 60000, 60000]; // null = espera mensaje
+
+    let index = 0;
+    let timeoutId;
+    let countdownInterval;
+    const frame = document.getElementById('page-frame');
+    const countdownEl = document.getElementById('countdown');
+
+    function showPage(i) {
+      frame.src = pages[i];
+
+      if (durations[i]) {
+        countdownEl.style.display = 'block';
+        startCountdown(durations[i]);
+      } else {
+        countdownEl.style.display = 'block';
+        countdownEl.textContent = 'Mostrando datos actuales';
+        clearInterval(countdownInterval);
+      }
+    }
+
+    function startCountdown(duration) {
+      let remaining = duration / 1000;
+      countdownEl.textContent = `Siguiente en: ${remaining} s`;
+
+      clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining >= 0) {
+          countdownEl.textContent = `Siguiente en: ${remaining} s`;
+        }
+      }, 1000);
+    }
+
+    function scheduleNext() {
+      if (durations[index]) {
+        timeoutId = setTimeout(nextPage, durations[index]);
+      }
+    }
+
+    function nextPage() {
+      index = (index + 1) % pages.length;
+
+      // ✅ Cuando vuelve a la primera página => refresca toda la página
+      if (index === 0) {
+        location.reload();
+        return;
+      }
+
+      showPage(index);
+      scheduleNext();
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data === 'slideshow_finished' && pages[index] === 'actual.html') {
+        clearTimeout(timeoutId);
+        nextPage();
+      }
+    });
+
+    showPage(index);
+    scheduleNext();
+  </script>
+</body>
+</html>

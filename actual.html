@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Slideshow de Gráficos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* RESET & BASE */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f2f4f5;
+      color: #333;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 1rem;
+    }
+    /* TÍTULO DINÁMICO */
+    h1 {
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    /* TIMESTAMP */
+    #last-update {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 0.5rem;
+    }
+
+    /* SLIDE WRAPPER */
+    .slide-wrapper {
+      position: relative;
+      width: 90vw; max-width: 1880px;
+      aspect-ratio: 1880 / 887;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    iframe {
+      width: 100%; height: 100%;
+      border: none; display: block;
+    }
+
+    /* PAGINATION DOTS */
+    .dots {
+      position: absolute;
+      bottom: 1rem; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 0.5rem;
+      pointer-events: none;
+    }
+    .dot {
+      width: 12px; height: 12px;
+      background: #ccc; border-radius: 50%;
+      transition: background 0.3s;
+    }
+    .dot.active {
+      background: #333;
+    }
+
+    /* COUNTDOWN */
+    #countdown {
+      margin-top: 0.75rem;
+      font-size: 1rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Aquí mostramos el timestamp obtenido vía Drive API -->
+  <div id="last-update">Última actualización: –</div>
+  <h1 id="slide-title">Cargando...</h1>
+
+  <div class="slide-wrapper">
+    <iframe id="slide-iframe" seamless scrolling="no"></iframe>
+    <div class="dots" id="slide-dots"></div>
+  </div>
+
+  <div id="countdown">Siguiente en: – s</div>
+
+  <script>
+    // Tu API Key de Google Drive
+    const API_KEY = 'AIzaSyD9kjtyJeJ8ezg5NAWFBhqslrULvjA2zEw';
+
+    // ID de tu Google Sheet (el que aparece en la URL)
+    const SHEET_FILE_ID = '1BzvNzCkUWWch7BXdjB17zjHjojAT4krIUgLridvAQwY';
+
+    // Array de slides, cada uno con su src y el mismo fileId
+    const slides = [
+      { title: "VARIABLE ENTREGA",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=429144214&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE ENTREGA",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=1461389632&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE ENTREGA",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=401278920&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE ENTREGA",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=983020485&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE OPERACIONAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=1158920462&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE OPERACIONAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=533451197&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "VARIABLE OPERACIONAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=1315632556&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "RESUMEN FINAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=261120698&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "RESUMEN FINAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=1233177914&format=interactive",
+        fileId: SHEET_FILE_ID
+      },
+      { title: "RESUMEN FINAL",
+        src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=206677540&format=interactive",
+        fileId: SHEET_FILE_ID
+      }
+    ];
+
+    // Duraciones en ms
+    const durations = slides.map((_, i) =>
+      (i === slides.length - 1) ? 40000 : 25000
+    );
+
+    let idx = 0, countdownInterval, nextTimeout;
+    const titleEl     = document.getElementById('slide-title');
+    const iframeEl    = document.getElementById('slide-iframe');
+    const dotsEl      = document.getElementById('slide-dots');
+    const countdownEl = document.getElementById('countdown');
+    const lastUpEl    = document.getElementById('last-update');
+
+    // Crear puntos de paginación
+    slides.forEach(() => {
+      const dot = document.createElement('span');
+      dot.classList.add('dot');
+      dotsEl.appendChild(dot);
+    });
+    const dotNodes = dotsEl.querySelectorAll('.dot');
+
+    // Función para leer modifiedTime de Drive
+    async function updateTimestamp(i) {
+      const { fileId } = slides[i];
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}` +
+                  `?fields=modifiedTime&key=${API_KEY}`;
+      try {
+        const res  = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        const { modifiedTime } = await res.json();
+        const ts = new Date(modifiedTime).toLocaleString('es-CL');
+        lastUpEl.textContent = `Última actualización: ${ts}`;
+      } catch (e) {
+        console.warn('Error al obtener timestamp de Drive:', e);
+        lastUpEl.textContent = 'Última actualización: –';
+      }
+    }
+
+    function showSlide(i) {
+      titleEl.textContent = slides[i].title;
+
+      // Forzar recarga: cache-buster
+      const base = slides[i].src;
+      const sep  = base.includes('?') ? '&' : '?';
+      iframeEl.src = `${base}${sep}cache=${Date.now()}`;
+
+      // Resaltar punto activo
+      dotNodes.forEach(d => d.classList.remove('active'));
+      dotNodes[i].classList.add('active');
+
+      // Actualizar timestamp
+      updateTimestamp(i);
+    }
+
+    function startCountdownAndTimer() {
+      let remaining = durations[idx] / 1000;
+      countdownEl.textContent = `Siguiente en: ${remaining} s`;
+
+      clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining >= 0) {
+          countdownEl.textContent = `Siguiente en: ${remaining} s`;
+        }
+      }, 1000);
+
+      clearTimeout(nextTimeout);
+      nextTimeout = setTimeout(() => {
+        idx++;
+        if (idx < slides.length) {
+          showSlide(idx);
+          startCountdownAndTimer();
+        } else {
+          // Cuando termina el último slide, avisa al index
+          window.parent.postMessage('slideshow_finished', '*');
+        }
+      }, durations[idx]);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      showSlide(idx);
+      startCountdownAndTimer();
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resumen General por Chofer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Llenar toda la pantalla */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f2f4f5;
+      color: #000;
+    }
+    #last-update {
+      margin: 1rem;
+      font-size: 0.9rem;
+      color: #555;
+      text-align: center;
+      font-weight: bold;
+    }
+    h1 {
+      margin: 0 1rem 1rem;
+      font-size: 1.75rem;
+      text-align: center;
+      font-weight: bold;
+    }
+    /* Contenedor flexible */
+    .sheet-container {
+      flex: 1;
+      width: 100%;
+      padding: 1rem;
+      box-sizing: border-box;
+      overflow: auto;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    table.sheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      color: #000;
+    }
+    table.sheet-table th,
+    table.sheet-table td {
+      border: 1px solid #000;
+      padding: 0.75rem;
+      text-align: left;
+      white-space: nowrap;
+      font-weight: bold;
+    }
+    table.sheet-table th {
+      background-color: #bdbdbd;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    /* Rayado suave de filas pares */
+    table.sheet-table tr:nth-child(even) td {
+      background-color: #eeeeee;
+    }
+    /* Filas SI CUADRA: verde más intenso */
+    .row-si-cuadra td {
+      background-color: #66BB6A !important;
+    }
+    /* Filas NO CUADRA: parpadeo rojo intenso y fluido */
+    .row-no-cuadra td {
+      animation: blink-red 1s infinite ease-in-out;
+    }
+    @keyframes blink-red {
+      0%, 100% { background-color: transparent; }
+      50%      { background-color: rgba(255, 82, 82, 0.6); }
+    }
+  </style>
+</head>
+<body>
+  <div id="last-update">Última actualización: –</div>
+  <h1>RESUMEN GENERAL POR CHOFER</h1>
+
+  <div class="sheet-container">
+    <div id="table-container"></div>
+  </div>
+
+  <div id="footer-message" style="margin: 1rem; font-style: italic; text-align: center;">
+    SI EXISTE ALGUNA DUDA, ACERCARSE A LA OFICINA A CONSULTAR CON LA PERSONA ENCARGADA
+  </div>
+
+  <script>
+    // --- CONFIG ---
+    const API_KEY    = 'AIzaSyD9kjtyJeJ8ezg5NAWFBhqslrULvjA2zEw';
+    const SHEET_ID   = '1BzvNzCkUWWch7BXdjB17zjHjojAT4krIUgLridvAQwY';
+    const CSV_URL    = `https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-`
+                       + `OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/`
+                       + `pub?output=csv&gid=500993062&range=A1:E15`;
+    const DRIVE_URL  = `https://www.googleapis.com/drive/v3/files/${SHEET_ID}`
+                       + `?fields=modifiedTime&key=${API_KEY}`;
+
+    // --- Función para actualizar el timestamp ---
+    async function updateTimestamp() {
+      try {
+        const res  = await fetch(DRIVE_URL);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        const ts   = new Date(data.modifiedTime)
+                       .toLocaleString('es-CL');
+        document.getElementById('last-update')
+                .textContent = `Última actualización: ${ts}`;
+      } catch (e) {
+        console.warn('No pude obtener el timestamp:', e);
+        document.getElementById('last-update')
+                .textContent = `Última actualización: –`;
+      }
+    }
+
+    // --- Función para parsear CSV ---
+    function parseCSV(text) {
+      const lines = text.split('\n').filter(l => l.trim().length);
+      return lines.map(line => {
+        const row = [];
+        let field = '', inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (inQuotes) {
+            if (c === '"' && line[i+1] === '"') { field += '"'; i++; }
+            else if (c === '"') inQuotes = false;
+            else field += c;
+          } else {
+            if (c === '"') inQuotes = true;
+            else if (c === ',') { row.push(field); field = ''; }
+            else field += c;
+          }
+        }
+        row.push(field);
+        return row;
+      });
+    }
+
+    // --- Carga tabla y timestamp ---
+    (async () => {
+      await updateTimestamp();
+      const res  = await fetch(CSV_URL);
+      const text = await res.text();
+      const rows = parseCSV(text);
+      const container = document.getElementById('table-container');
+      const table     = document.createElement('table');
+      table.className = 'sheet-table';
+
+      rows.forEach((cells, rowIndex) => {
+        const tr = document.createElement('tr');
+        cells.forEach(value => {
+          const cell = document.createElement(rowIndex === 0 ? 'th' : 'td');
+          cell.textContent = value;
+          tr.appendChild(cell);
+        });
+        if (rowIndex > 0) {
+          const status = cells[1];
+          if (status === 'SI CUADRA')      tr.classList.add('row-si-cuadra');
+          else if (status === 'NO CUADRA') tr.classList.add('row-no-cuadra');
+        }
+        table.appendChild(tr);
+      });
+
+      container.appendChild(table);
+    })();
+  </script>
+</body>
+</html>
