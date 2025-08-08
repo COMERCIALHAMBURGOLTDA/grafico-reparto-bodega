@@ -5,7 +5,6 @@
   <title>Slideshow de Gráficos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* RESET & BASE */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%;
@@ -15,21 +14,8 @@
       display: flex; flex-direction: column; align-items: center;
       padding: 1rem;
     }
-    /* TÍTULO DINÁMICO */
-    h1 {
-      margin-bottom: 0.5rem;
-      font-size: 2rem;
-      font-weight: 600;
-    }
-
-    /* TIMESTAMP */
-    #last-update {
-      font-size: 0.9rem;
-      color: #555;
-      margin-bottom: 0.5rem;
-    }
-
-    /* SLIDE WRAPPER */
+    h1 { margin-bottom: 0.5rem; font-size: 2rem; font-weight: 600; }
+    #last-update { font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
     .slide-wrapper {
       position: relative;
       width: 90vw; max-width: 1880px;
@@ -39,12 +25,7 @@
       background: #fff;
       box-shadow: 0 8px 24px rgba(0,0,0,0.1);
     }
-    iframe {
-      width: 100%; height: 100%;
-      border: none; display: block;
-    }
-
-    /* PAGINATION DOTS */
+    iframe { width: 100%; height: 100%; border: none; display: block; }
     .dots {
       position: absolute;
       bottom: 1rem; left: 50%;
@@ -55,23 +36,39 @@
     .dot {
       width: 12px; height: 12px;
       background: #ccc; border-radius: 50%;
-      transition: background 0.3s;
+      transition: background 0.3s, transform 0.15s;
+      pointer-events: auto;
+      cursor: pointer;
     }
-    .dot.active {
-      background: #333;
-    }
+    .dot:hover { transform: scale(1.15); }
+    .dot.active { background: #333; }
+    #countdown { margin-top: 0.75rem; font-size: 1rem; color: #555; }
 
-    /* COUNTDOWN */
-    #countdown {
-      margin-top: 0.75rem;
-      font-size: 1rem;
-      color: #555;
+    /* Botones manuales (slide anterior / siguiente) */
+    #page-controls {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 3000;
     }
+    #page-controls button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      background: rgba(255,255,255,0.95);
+      color: #111;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transition: transform .08s ease, background .2s;
+    }
+    #page-controls button:hover { transform: translateY(-1px); }
+    #page-controls button:active { transform: translateY(0); }
   </style>
 </head>
 <body>
-
-  <!-- Aquí mostramos el timestamp obtenido vía Drive API -->
   <div id="last-update">Última actualización: –</div>
   <h1 id="slide-title">Cargando...</h1>
 
@@ -82,14 +79,15 @@
 
   <div id="countdown">Siguiente en: – s</div>
 
+  <!-- Botones manuales para cambiar de SLIDE -->
+  <div id="page-controls">
+    <button id="prevWindow">◀︎ Anterior (slide)</button>
+    <button id="nextWindow">Siguiente (slide) ▶︎</button>
+  </div>
+
   <script>
-    // Tu API Key de Google Drive
     const API_KEY = 'AIzaSyD9kjtyJeJ8ezg5NAWFBhqslrULvjA2zEw';
-
-    // ID de tu Google Sheet (el que aparece en la URL)
     const SHEET_FILE_ID = '1BzvNzCkUWWch7BXdjB17zjHjojAT4krIUgLridvAQwY';
-
-    // Array de slides, cada uno con su src y el mismo fileId
     const slides = [
       { title: "VARIABLE ENTREGA",
         src: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU5OQHyRj-OXlfqf9yxT0E8YoBnDVksnXRSZBPDCHBfs5o0Kn70vTJ7oGXY6PfxDrLDj5PaOu6Rbtb/pubchart?oid=429144214&format=interactive",
@@ -133,11 +131,7 @@
       }
     ];
 
-    // Duraciones en ms
-    const durations = slides.map((_, i) =>
-      (i === slides.length - 1) ? 40000 : 25000
-    );
-
+    const durations = slides.map((_, i) => (i === slides.length - 1) ? 40000 : 25000);
     let idx = 0, countdownInterval, nextTimeout;
     const titleEl     = document.getElementById('slide-title');
     const iframeEl    = document.getElementById('slide-iframe');
@@ -145,7 +139,6 @@
     const countdownEl = document.getElementById('countdown');
     const lastUpEl    = document.getElementById('last-update');
 
-    // Crear puntos de paginación
     slides.forEach(() => {
       const dot = document.createElement('span');
       dot.classList.add('dot');
@@ -153,11 +146,19 @@
     });
     const dotNodes = dotsEl.querySelectorAll('.dot');
 
-    // Función para leer modifiedTime de Drive
+    dotNodes.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        clearTimeout(nextTimeout);
+        clearInterval(countdownInterval);
+        idx = i;
+        showSlide(idx);
+        startCountdownAndTimer();
+      });
+    });
+
     async function updateTimestamp(i) {
       const { fileId } = slides[i];
-      const url = `https://www.googleapis.com/drive/v3/files/${fileId}` +
-                  `?fields=modifiedTime&key=${API_KEY}`;
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime&key=${API_KEY}`;
       try {
         const res  = await fetch(url);
         if (!res.ok) throw new Error(res.statusText);
@@ -172,17 +173,11 @@
 
     function showSlide(i) {
       titleEl.textContent = slides[i].title;
-
-      // Forzar recarga: cache-buster
       const base = slides[i].src;
       const sep  = base.includes('?') ? '&' : '?';
       iframeEl.src = `${base}${sep}cache=${Date.now()}`;
-
-      // Resaltar punto activo
       dotNodes.forEach(d => d.classList.remove('active'));
       dotNodes[i].classList.add('active');
-
-      // Actualizar timestamp
       updateTimestamp(i);
     }
 
@@ -205,17 +200,39 @@
           showSlide(idx);
           startCountdownAndTimer();
         } else {
-          // Cuando termina el último slide, avisa al index
           window.parent.postMessage('slideshow_finished', '*');
         }
       }, durations[idx]);
     }
+
+    // Helpers para control manual de SLIDES
+    function gotoSlide(newIndex) {
+      clearTimeout(nextTimeout);
+      clearInterval(countdownInterval);
+      idx = (newIndex + slides.length) % slides.length;
+      showSlide(idx);
+      startCountdownAndTimer();
+    }
+    function nextSlide() { gotoSlide(idx + 1); }
+    function prevSlide() { gotoSlide(idx - 1); }
+
+    // Teclado
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      }
+    });
+
+    // Botones manuales (usamos los existentes en la esquina)
+    document.getElementById('nextWindow').addEventListener('click', nextSlide);
+    document.getElementById('prevWindow').addEventListener('click', prevSlide);
 
     document.addEventListener('DOMContentLoaded', () => {
       showSlide(idx);
       startCountdownAndTimer();
     });
   </script>
-
 </body>
 </html>
